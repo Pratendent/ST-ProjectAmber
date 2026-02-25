@@ -22,6 +22,7 @@ import { power_user } from "../../../power-user.js";
 import * as StoryAssistant from "./modules/story-assistant/index.js";
 import * as AskAmber from "./modules/story-assistant/ask-amber.js";
 import * as CharacterExtract from "./modules/story-assistant/character-extract.js";
+import * as StorySummary from "./modules/story-assistant/story-summary.js";
 // 自定义任务模块
 import * as CustomTasks from "./modules/custom-tasks/index.js";
 
@@ -101,6 +102,36 @@ const defaultSettings = {
 }]
 `,
         promptA2: "了解，开始生成JSON:"
+    },
+    // 故事总结设置
+    storySummary: {
+        entryName: "故事总结",
+        entryPosition: 0,
+        entryDepth: 4,
+        entryOrder: 100,
+        summarizedFloors: {},  // { chatKey: lastSummarizedFloor }
+        promptU1: "你是角色扮演游戏剧情总结器。你的任务是根据聊天历史，为玩家进行专业的剧情总结。",
+        promptA1: "明白。我将根据聊天历史，生成故事总结。",
+        promptU2: `【故事设定】
+{{worldInfo}}
+
+【历史记录】
+<chat_history>
+{{chatHistory}}
+</chat_history>
+
+【输出要求】
+1. 使用第三人称，按时间顺序对到目前为止的游戏故事进行整理，记录所有的剧情事件。
+2. 必须记录所有重点与关键信息，例如：具体设定或重要背景，特殊环境与物品描述，人物关系，故事伏笔等。
+
+模版：
+name: 事件名
+time: 事件发生的日期与时间，确保准确记录事件的时间点。
+summary: 该事件的详细概述，描述事件的背景、经过和结果，提供足够的信息以理解事件的全貌。
+nodes: 事件的细节节点，每个节点包含一个name和info字段。
+- name: 节点名称。
+  info: 该细节的详细描述，提供具体的信息和背景。`,
+        promptA2: "了解，开始生成:"
     }
 
 };
@@ -495,6 +526,45 @@ function getChatHistory(count) {
         return `${name}: ${content}`;
     });
     
+    return lines.join('\n\n');
+}
+
+/**
+ * 获取指定楼层范围的聊天历史并进行预处理
+ * @param {number} startFloor - 起始楼层（1-based）
+ * @param {number} endFloor - 结束楼层（1-based）
+ * @returns {string}
+ */
+function getChatHistoryRange(startFloor, endFloor) {
+    const ctx = getContext();
+    const chat = ctx.chat || [];
+    const settings = getSettings();
+
+    // 楼层从1开始，数组索引从0开始
+    const startIdx = Math.max(0, startFloor - 1);
+    const endIdx = Math.min(chat.length, endFloor);
+
+    const messages = chat.slice(startIdx, endIdx);
+    const lines = messages.map(msg => {
+        const name = msg.is_user ? (ctx.name1 || '{{user}}') : (msg.name || ctx.name2 || '{{char}}');
+        let content = msg.mes || '';
+
+        // 1. 先处理仅包括标签（如果设置了）
+        if (settings.includeTags && settings.includeTags.trim()) {
+            content = extractIncludeTags(content, settings.includeTags);
+
+            // 如果开启了额外排除处理，则继续处理
+            if (settings.applyExcludeAfterInclude && content) {
+                content = removeTaggedContent(content, settings.excludeTags);
+            }
+        } else {
+            // 2. 没有仅包括标签时，直接移除排除标签内容
+            content = removeTaggedContent(content, settings.excludeTags);
+        }
+
+        return `${name}: ${content}`;
+    });
+
     return lines.join('\n\n');
 }
 
@@ -1099,6 +1169,7 @@ function initStoryAssistantModule() {
         jsonToYaml,
         world_names,
         getChatHistory,
+        getChatHistoryRange,
         getWorldInfoContent,
         extractIncludeTags,
         removeTaggedContent,
@@ -1115,6 +1186,9 @@ function initStoryAssistantModule() {
     
     // 注册角色提取模块
     StoryAssistant.registerModule(CharacterExtract);
+    
+    // 注册故事总结模块
+    StoryAssistant.registerModule(StorySummary);
     
     // 渲染故事助手页面
     const storyAssistantHtml = StoryAssistant.renderStoryAssistantPanel();

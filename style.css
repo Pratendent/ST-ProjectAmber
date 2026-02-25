@@ -852,6 +852,279 @@
     overflow-y: auto;
 }
 
+/* ==================== 故事总结模块样式 ==================== */
+
+/* 主弹窗 */
+.jtw-ss-modal-content {
+    max-width: 1100px;
+    width: 95%;
+    max-height: 85vh;
+}
+
+/* 标签页导航 */
+.jtw-ss-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.jtw-ss-tab {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    color: var(--SmartThemeBodyColor);
+    font-size: 14px;
+    transition: all 0.2s;
+    opacity: 0.6;
+}
+
+.jtw-ss-tab:hover {
+    opacity: 0.8;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.jtw-ss-tab.active {
+    opacity: 1;
+    border-bottom-color: var(--SmartThemeChatTintColor);
+}
+
+.jtw-ss-tab-content {
+    display: none;
+}
+
+.jtw-ss-tab-content.active {
+    display: block;
+}
+
+/* 已总结楼层信息 */
+.jtw-ss-summarized-info {
+    padding: 10px 15px;
+    background: rgba(33, 150, 243, 0.15);
+    border: 1px solid rgba(33, 150, 243, 0.3);
+    border-radius: 6px;
+    color: #64b5f6;
+    font-weight: bold;
+    font-size: 14px;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+/* 空状态提示 */
+.jtw-ss-empty-hint {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+}
+
+.jtw-ss-empty-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.jtw-ss-empty-text {
+    font-size: 18px;
+    color: var(--SmartThemeBodyColor);
+    margin-bottom: 8px;
+}
+
+.jtw-ss-empty-hint-text {
+    font-size: 14px;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.8;
+    margin-bottom: 20px;
+}
+
+/* 条目信息栏 */
+.jtw-ss-entry-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    padding: 12px 15px;
+    background: rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    margin-bottom: 15px;
+    font-size: 13px;
+}
+
+.jtw-ss-entry-info span {
+    color: var(--SmartThemeBodyColor);
+}
+
+.jtw-ss-entry-info strong {
+    color: var(--SmartThemeEmColor);
+}
+
+/* 文本区域 */
+.jtw-ss-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    background: var(--SmartThemeBlurTintColor);
+    color: var(--SmartThemeBodyColor);
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    resize: vertical;
+}
+
+.jtw-ss-textarea:focus {
+    outline: none;
+    border-color: var(--SmartThemeChatTintColor);
+}
+
+/* 操作按钮区域 */
+.jtw-ss-actions {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.jtw-ss-actions .jtw-status {
+    margin: 0;
+    flex: 1;
+}
+
+/* 设置页面网格布局 */
+.jtw-ss-settings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    min-height: 600px;
+}
+
+@media (max-width: 900px) {
+    .jtw-ss-settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.jtw-ss-settings-left {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.jtw-ss-settings-right {
+    display: flex;
+    flex-direction: column;
+}
+
+/* 提示词设置区域 */
+.jtw-ss-prompts-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.jtw-ss-prompts-section textarea {
+    resize: vertical;
+}
+
+/* 运行区域 */
+.jtw-ss-run-section {
+    margin-top: auto;
+    padding-top: 15px;
+    border-top: 1px solid var(--SmartThemeBorderColor);
+}
+
+.jtw-ss-run-section .jtw-btn {
+    width: 100%;
+}
+
+.jtw-ss-run-section .jtw-status {
+    margin-top: 10px;
+}
+
+/* 加载状态 */
+.jtw-ss-loading {
+    padding: 40px;
+    text-align: center;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.7;
+}
+
+.jtw-ss-error {
+    padding: 20px;
+    text-align: center;
+    color: #f44336;
+}
+
+.jtw-ss-empty {
+    padding: 40px;
+    text-align: center;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.7;
+}
+
+/* 结果弹窗 */
+.jtw-ss-result-modal-content {
+    max-width: 700px;
+    width: 90%;
+}
+
+.jtw-ss-result-count {
+    padding: 10px 15px;
+    background: rgba(76, 175, 80, 0.15);
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    border-radius: 6px;
+    color: #81c784;
+    font-weight: bold;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.jtw-ss-result-hint {
+    font-size: 12px;
+    color: var(--SmartThemeEmColor);
+    opacity: 0.8;
+    margin-top: 8px;
+    text-align: center;
+}
+
+/* 提示词预览弹窗 */
+.jtw-ss-prompt-modal-content {
+    max-width: 900px;
+    width: 100%;
+    max-height: 90vh;
+}
+
+.jtw-ss-prompt-preview {
+    overflow-y: auto;
+    max-height: 60vh;
+    border: 1px solid var(--SmartThemeBorderColor);
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.jtw-ss-prompt-preview .jtw-prompt-message {
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    border-bottom: 1px solid var(--SmartThemeBorderColor);
+}
+
+.jtw-ss-prompt-preview .jtw-prompt-message:last-child {
+    border-bottom: none;
+}
+
+.jtw-ss-prompt-preview .jtw-prompt-content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
 /* ==================== 问问琥珀模块样式 ==================== */
 
 /* 主弹窗 */
