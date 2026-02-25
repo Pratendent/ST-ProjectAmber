@@ -208,7 +208,7 @@ async function saveToWorldbook(content, options = {}) {
         }
 
         if (!entry) {
-            const { createWorldInfoEntry } = await import("../../../../world-info.js");
+            const { createWorldInfoEntry } = await import("../../../../../world-info.js");
             entry = createWorldInfoEntry(targetBook, worldData);
             if (!entry) {
                 return { success: false, error: "创建世界书条目失败" };
@@ -283,7 +283,7 @@ async function saveEntryOverwrite(content) {
         }
 
         if (!entry) {
-            const { createWorldInfoEntry } = await import("../../../../world-info.js");
+            const { createWorldInfoEntry } = await import("../../../../../world-info.js");
             entry = createWorldInfoEntry(targetBook, worldData);
             if (!entry) {
                 return { success: false, error: "创建世界书条目失败" };
