@@ -302,6 +302,14 @@ function parseYamlBlock(yamlContent) {
         if (content.startsWith('- ')) {
             const itemContent = content.slice(2).trim();
             if (arrayKey) {
+                // 已经在收集数组项
+                arrayItems.push(itemContent);
+            } else if (nestedKey && nestedObj && Object.keys(nestedObj).length === 0) {
+                // 顶级键后直接跟数组项（如 代表性台词:\n  - 台词1）
+                // 之前被误识别为嵌套对象，实际上是顶级数组
+                arrayKey = nestedKey;
+                nestedKey = null;
+                nestedObj = null;
                 arrayItems.push(itemContent);
             }
             continue;
