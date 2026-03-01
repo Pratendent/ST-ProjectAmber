@@ -1346,6 +1346,10 @@ function createQuickAccessPanel() {
                     <i class="fa-solid fa-users"></i>
                     <span>角色提取</span>
                 </div>
+                <div class="jtw-quick-access-item" data-action="story-summary" title="故事总结">
+                    <i class="fa-solid fa-book"></i>
+                    <span>故事总结</span>
+                </div>
                 <div class="jtw-quick-access-item" data-action="custom-tasks" title="自定义任务">
                     <i class="fa-solid fa-list-check"></i>
                     <span>自定义任务</span>
@@ -1597,6 +1601,10 @@ function handleQuickAccessAction(action) {
         case 'character-extract':
             // 打开角色提取
             CharacterExtract.showModal();
+            break;
+        case 'story-summary':
+            // 打开故事总结
+            StorySummary.showModal();
             break;
         case 'custom-tasks':
             // 切换到自定义任务标签页并打开扩展面板
