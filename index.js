@@ -12,17 +12,26 @@ import {
     world_info,
     METADATA_KEY,
     createWorldInfoEntry,
-    checkWorldInfo
+    checkWorldInfo,
+    createNewWorldInfo,
+    deleteWorldInfo,
+    deleteWorldInfoEntry,
+    reloadEditor,
+    updateWorldInfoList,
+    openWorldInfoEditor,
+    world_info_logic
 } from "../../../world-info.js";
 import { oai_settings, getChatCompletionModel, chat_completion_sources } from "../../../openai.js";
 import { ChatCompletionService } from "../../../custom-request.js";
 import { power_user } from "../../../power-user.js";
+import { yaml } from "../../../../lib.js";
 
 // 故事助手模块
 import * as StoryAssistant from "./modules/story-assistant/index.js";
 import * as AskAmber from "./modules/story-assistant/ask-amber.js";
 import * as CharacterExtract from "./modules/story-assistant/character-extract.js";
 import * as StorySummary from "./modules/story-assistant/story-summary.js";
+import * as StoryMemory from "./modules/story-assistant/story-memory.js";
 // 自定义任务模块
 import * as CustomTasks from "./modules/custom-tasks/index.js";
 
@@ -132,6 +141,17 @@ summary: 该事件的详细概述，描述事件的背景、经过和结果，�
 nodes: 事件的细节节点（复数）。
 - 节点名称: 该节点的详细描述，提供具体的信息和背景。`,
         promptA2: "了解，开始生成:"
+    },
+    storyMemory: {
+        enabled: true,
+        autoApply: true,
+        allowAiCreateBook: true,
+        allowAiConfigureBook: true,
+        instructionPrompt: '',
+        instructionWorldbook: 'Amber Memory 指令提示词',
+        instructionEntryName: 'Amber Memory 指令提示词',
+        books: [],
+        history: []
     }
 
 };
@@ -1166,7 +1186,15 @@ function initStoryAssistantModule() {
         loadWorldInfo,
         saveWorldInfo,
         createWorldInfoEntry,
+        createNewWorldInfo,
+        deleteWorldInfo,
+        deleteWorldInfoEntry,
+        reloadEditor,
+        updateWorldInfoList,
+        openWorldInfoEditor,
+        world_info_logic,
         jsonToYaml,
+        yaml,
         world_names,
         getChatHistory,
         getChatHistoryRange,
@@ -1189,6 +1217,7 @@ function initStoryAssistantModule() {
     
     // 注册故事总结模块
     StoryAssistant.registerModule(StorySummary);
+    StoryAssistant.registerModule(StoryMemory);
     
     // 渲染故事助手页面
     const storyAssistantHtml = StoryAssistant.renderStoryAssistantPanel();
@@ -1299,13 +1328,23 @@ async function saveExtractedJson() {
  * 处理新消息（自动提取模式）
  */
 async function onMessageReceived(mesId) {
-    const settings = getSettings();
-    if (!settings.enabled || !settings.autoExtract) return;
-
     const ctx = getContext();
     const msg = ctx.chat?.[mesId];
     
     if (!msg || msg.is_user) return;
+
+    const settings = getSettings();
+
+    if (!settings.enabled || !settings.autoExtract) {
+        if (StoryMemory.handleMessage) {
+            await StoryMemory.handleMessage(msg, mesId);
+        }
+        return;
+    }
+
+    if (StoryMemory.handleMessage) {
+        await StoryMemory.handleMessage(msg, mesId);
+    }
 
     const json = extractJson(msg.mes);
     if (json) {
@@ -1350,6 +1389,10 @@ function createQuickAccessPanel() {
                     <i class="fa-solid fa-book"></i>
                     <span>故事总结</span>
                 </div>
+                <div class="jtw-quick-access-item" data-action="story-memory" title="记忆库">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>记忆库</span>
+                </div>                
                 <div class="jtw-quick-access-item" data-action="custom-tasks" title="自定义任务">
                     <i class="fa-solid fa-list-check"></i>
                     <span>自定义任务</span>
@@ -1605,6 +1648,9 @@ function handleQuickAccessAction(action) {
         case 'story-summary':
             // 打开故事总结
             StorySummary.showModal();
+            break;
+        case 'story-memory':
+            StoryMemory.showModal();
             break;
         case 'custom-tasks':
             // 切换到自定义任务标签页并打开扩展面板
