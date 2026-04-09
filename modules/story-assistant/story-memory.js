@@ -734,16 +734,35 @@ function renderHistoryList() {
 
     const items = history.map((item, index) => ({ item, index })).reverse().map(({ item, index }) => {
         const originalIndex = history.length - 1 - index;
-        const affectedBooks = (item.snapshots || []).map(snapshot => snapshot.worldbook).filter(Boolean).join(', ');
+        const affectedEntries = (item.changes || []).map(change => `${change.worldbook} · ${change.entryName}`).join('，');
+        const changeDetails = (item.changes || []).map(change => `
+            <div class="jtw-sm-history-change">
+                <div class="jtw-sm-history-change-title">${escapeHtml(change.worldbook)} · ${escapeHtml(change.entryName)}</div>
+                <div class="jtw-sm-history-change-grid">
+                    <div>
+                        <div class="jtw-sm-history-change-label">变更前</div>
+                        <pre class="jtw-sm-history-code">${escapeHtml(change.beforeContent || '(空)')}</pre>
+                    </div>
+                    <div>
+                        <div class="jtw-sm-history-change-label">变更后</div>
+                        <pre class="jtw-sm-history-code">${escapeHtml(change.afterContent || '(已删除)')}</pre>
+                    </div>
+                </div>
+            </div>
+        `).join('');
         return `
             <div class="jtw-sm-history-item">
                 <div class="jtw-sm-history-main">
                     <div class="jtw-sm-history-title">${escapeHtml(item.actionSummary || '未命名操作')}</div>
                     <div class="jtw-sm-history-meta">
                         <span>${escapeHtml(formatTimestamp(item.createdAt))}</span>
-                        <span>${escapeHtml(affectedBooks || '未知世界书')}</span>
+                        <span>${escapeHtml(affectedEntries || '无变更条目')}</span>
                     </div>
-                    <div class="jtw-sm-history-preview">${escapeHtml(item.messagePreview || '无消息预览')}</div>
+                    <pre class="jtw-sm-history-preview">${escapeHtml(item.commandText || '无指令预览')}</pre>
+                    <details class="jtw-sm-history-details">
+                        <summary>查看变更内容</summary>
+                        ${changeDetails || '<div class="jtw-sm-history-empty">没有记录到条目变化</div>'}
+                    </details>
                 </div>
                 <button class="jtw-btn jtw-sm-history-rollback" data-history-index="${originalIndex}">回退到此处</button>
             </div>
@@ -1057,7 +1076,7 @@ function parseMessageCommands(message) {
     const storyMemory = getStoryMemorySettings();
     const blocks = extractAmberMemoryBlocks(message);
     if (!blocks.length) {
-        return { actions: [], summary: '' };
+        return { actions: [], summary: '', commandText: '' };
     }
 
     const activeWorldbook = getActiveWorldbookName(true);
@@ -1091,6 +1110,7 @@ function parseMessageCommands(message) {
     return {
         actions,
         summary: summarizeActions(actions),
+        commandText: blocks.map(block => `\`\`\`amber-memory\n${block}\n\`\`\``).join('\n\n'),
     };
 }
 
@@ -1260,7 +1280,7 @@ async function applyCompiledActions(compiled, metadata = {}) {
 
             switch (action.action) {
                 case 'create_book':
-                    captureSnapshot(state, snapshots, workingBooks);
+                    captureSnapshot(state, snapshots, workingBooks, action.book);
                     {
                         const previousConfig = findManagedBook(workingBooks, action.worldbook, action.book);
                         state.currentConfig = clone(action.config);
@@ -1274,7 +1294,7 @@ async function applyCompiledActions(compiled, metadata = {}) {
                     break;
 
                 case 'configure_book': {
-                    captureSnapshot(state, snapshots, workingBooks);
+                    captureSnapshot(state, snapshots, workingBooks, action.book);
                     const previousConfig = findManagedBook(workingBooks, action.worldbook, action.book);
                     state.currentConfig = clone(action.config);
                     upsertBook(workingBooks, state.currentConfig);
@@ -1290,7 +1310,7 @@ async function applyCompiledActions(compiled, metadata = {}) {
                 case 'merge':
                 case 'replace':
                 case 'delete': {
-                    captureSnapshot(state, snapshots, workingBooks);
+                    captureSnapshot(state, snapshots, workingBooks, action.book);
                     const targetConfig = findManagedBook(workingBooks, action.worldbook, action.book);
                     if (!targetConfig || !targetConfig.enabled) {
                         throw new Error(`当前聊天世界书未启用受管记忆条目：${action.book}`);
@@ -1318,14 +1338,21 @@ async function applyCompiledActions(compiled, metadata = {}) {
 
         storyMemory.books = workingBooks.map(normalizeManagedBook);
 
-        if (metadata.recordHistory && snapshots.size > 0) {
+        const historyChanges = buildHistoryChanges([...snapshots.values()], workingBooks, stateMap);
+        const changedSnapshotKeys = new Set(historyChanges.map(item => item.snapshotKey));
+        const filteredSnapshots = [...snapshots.values()]
+            .filter(item => changedSnapshotKeys.has(getSnapshotKey(item.worldbook, item.entryName)))
+            .map(item => clone(item));
+
+        if (metadata.recordHistory && historyChanges.length > 0) {
             storyMemory.history.push({
                 id: `history_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
                 createdAt: Date.now(),
                 messageId: metadata.messageId ?? null,
-                messagePreview: buildMessagePreview(metadata.messageText),
+                commandText: compiled.commandText || '',
                 actionSummary: compiled.summary,
-                snapshots: [...snapshots.values()].map(item => clone(item)),
+                snapshots: filteredSnapshots,
+                changes: historyChanges,
             });
             storyMemory.history = storyMemory.history.slice(-MAX_HISTORY);
         }
@@ -1343,13 +1370,30 @@ async function applyCompiledActions(compiled, metadata = {}) {
     }
 }
 
-function buildMessagePreview(text) {
-    return String(text || '')
-        .replace(/```[\s\S]*?```/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 120);
+function serializeForCompare(value) {
+    return JSON.stringify(value ?? null);
 }
+
+function buildHistoryChanges(snapshots, workingBooks, stateMap) {
+    return snapshots.map(snapshot => {
+        const state = stateMap.get(snapshot.worldbook);
+        const currentConfig = findManagedBook(workingBooks, snapshot.worldbook, snapshot.entryName);
+        const currentEntry = findEntryRecord(state?.worldData, [snapshot.entryName], snapshot.entryUid)?.entry || null;
+        const changed = (
+            serializeForCompare(snapshot.config) !== serializeForCompare(currentConfig)
+            || serializeForCompare(snapshot.entryData) !== serializeForCompare(currentEntry)
+        );
+
+        return changed ? {
+            snapshotKey: getSnapshotKey(snapshot.worldbook, snapshot.entryName),
+            worldbook: snapshot.worldbook,
+            entryName: snapshot.entryName,
+            beforeContent: snapshot.entryData?.content || '',
+            afterContent: currentEntry?.content || '',
+        } : null;
+    }).filter(Boolean);
+}
+
 async function getWorldState(worldbook, workingBooks, stateMap) {
     if (stateMap.has(worldbook)) {
         return stateMap.get(worldbook);
@@ -1374,32 +1418,71 @@ async function getWorldState(worldbook, workingBooks, stateMap) {
     return state;
 }
 
-function captureSnapshot(state, snapshots, workingBooks) {
-    const existing = snapshots.get(state.worldbook);
+function getSnapshotKey(worldbook, entryName) {
+    return `${worldbook}::${entryName}`;
+}
+
+function findEntryRecord(worldData, names = [], preferredUid = null) {
+    const entries = worldData?.entries || {};
+    const normalizedNames = [...new Set(names.map(name => String(name || '').trim()).filter(Boolean))];
+
+    if (preferredUid != null && entries[String(preferredUid)]) {
+        return { key: String(preferredUid), entry: entries[String(preferredUid)] };
+    }
+
+    for (const [key, entry] of Object.entries(entries)) {
+        if (!entry) continue;
+        if (preferredUid != null && String(entry.uid) === String(preferredUid)) {
+            return { key, entry };
+        }
+        if (normalizedNames.includes(String(entry.comment || '').trim())) {
+            return { key, entry };
+        }
+    }
+
+    return null;
+}
+
+function setEntryRecord(worldData, entryData) {
+    worldData.entries = worldData.entries || {};
+    const key = String(entryData.uid);
+    worldData.entries[key] = clone(entryData);
+}
+
+function removeEntryRecord(worldData, names = [], preferredUid = null) {
+    const record = findEntryRecord(worldData, names, preferredUid);
+    if (!record) return false;
+    delete worldData.entries[record.key];
+    return true;
+}
+
+function captureSnapshot(state, snapshots, workingBooks, entryName) {
+    const snapshotKey = getSnapshotKey(state.worldbook, entryName);
+    const existing = snapshots.get(snapshotKey);
     if (existing) {
         return existing;
     }
 
+    const existingConfig = findManagedBook(workingBooks, state.worldbook, entryName);
+    const entryRecord = findEntryRecord(state.worldData, [entryName], existingConfig?.uid);
+
     const snapshot = {
         worldbook: state.worldbook,
-        worldExisted: state.worldExists,
-        worldData: state.worldExists ? clone(state.worldData) : null,
-        bookConfigs: (workingBooks || [])
-            .filter(book => book.worldbook === state.worldbook)
-            .map(book => clone(book)),
+        entryName,
+        configExisted: Boolean(existingConfig),
+        configId: existingConfig?.id || null,
+        config: existingConfig ? clone(existingConfig) : null,
+        entryExisted: Boolean(entryRecord?.entry),
+        entryUid: entryRecord?.entry?.uid ?? null,
+        entryData: entryRecord?.entry ? clone(entryRecord.entry) : null,
     };
 
-    snapshots.set(state.worldbook, snapshot);
+    snapshots.set(snapshotKey, snapshot);
     return snapshot;
 }
 
 function findEntryByComments(worldData, names = []) {
-    const expected = [...new Set(names.map(name => String(name || '').trim()).filter(Boolean))];
-    if (!expected.length) return null;
-
-    return Object.values(worldData?.entries || {}).find(candidate =>
-        candidate && expected.includes(String(candidate.comment || '').trim())
-    ) || null;
+    return findEntryRecord(worldData, names)?.entry || null;
 }
 
 function ensureManagedEntry(state, preferredNames = []) {
@@ -1640,20 +1723,39 @@ function getParentPath(root, path) {
 async function restoreSnapshots(snapshots, workingBooks) {
     let books = (workingBooks || []).map(normalizeManagedBook);
     const affectedWorldbooks = new Set();
+    const worldDataCache = new Map();
 
     for (const snapshot of [...snapshots].reverse()) {
         affectedWorldbooks.add(snapshot.worldbook);
 
-        books = books.filter(book => book.worldbook !== snapshot.worldbook);
-        for (const config of snapshot.bookConfigs || []) {
-            books.push(normalizeManagedBook(config));
+        if (snapshot.configExisted && snapshot.config) {
+            upsertBook(books, snapshot.config);
+        } else if (snapshot.configId) {
+            books = books.filter(book => book.id !== snapshot.configId);
+        } else {
+            books = books.filter(book =>
+                !(book.worldbook === snapshot.worldbook && book.entryName === snapshot.entryName)
+            );
         }
 
-        if (snapshot.worldExisted) {
-            await dependencies.saveWorldInfo(snapshot.worldbook, clone(snapshot.worldData) || { entries: {} }, true);
-        } else if ((dependencies.world_names || []).includes(snapshot.worldbook)) {
-            await dependencies.deleteWorldInfo(snapshot.worldbook);
+        let worldData = worldDataCache.get(snapshot.worldbook);
+        if (!worldData) {
+            worldData = await dependencies.loadWorldInfo(snapshot.worldbook);
+            if (!worldData) {
+                continue;
+            }
+            worldDataCache.set(snapshot.worldbook, worldData);
         }
+
+        if (snapshot.entryExisted && snapshot.entryData) {
+            setEntryRecord(worldData, snapshot.entryData);
+        } else {
+            removeEntryRecord(worldData, [snapshot.entryName], snapshot.entryUid);
+        }
+    }
+
+    for (const [worldbook, worldData] of worldDataCache.entries()) {
+        await dependencies.saveWorldInfo(worldbook, worldData, true);
     }
 
     return {
