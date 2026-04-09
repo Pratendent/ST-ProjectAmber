@@ -35,19 +35,24 @@ const SELECTIVE_LOGIC_LABELS = ['AND_ANY', 'NOT_ALL', 'NOT_ANY', 'AND_ALL'];
 const DEFAULT_INSTRUCTION_PROMPT = String.raw`在正常剧情回复结束后，可以额外附加一个 \`\`\`amber-memory 代码块，用它向 Amber Memory 发出记忆库指令。
 
 规则：
-1. 只有在确实需要创建记忆条目、配置记忆条目、写入记忆、修改记忆或删除记忆时，才输出这个代码块。
-2. 所有记忆库指令都集中写在由<memory_edit>包裹的 \`\`\`amber-memory 代码块内。
+1. 检查[Books]，只有在确实需要创建记忆条目、配置记忆条目、写入记忆、修改记忆或删除记忆时，才输出这个代码块。
+2. 所有记忆库指令都集中写在由<memory_edit>包裹的 \`\`\`amber-memory 代码块内；在输出指令前记录update_record。
 3. actions 会按顺序执行；如果后一步依赖前一步，请确保顺序正确。
-4. merge 用于增量补充，仅变更字段；replace 用于整段替换；delete 用于删除路径及其全部子内容。
+4. merge 用于增量补充与编辑字段；replace 用于整段替换，包括其子内容；delete 用于删除路径及其全部子内容。
 5. path 可以写成 YAML 数组，也可以写成点路径字符串，但推荐数组写法。
-6. 新建条目使用position: after_character, order则从301开始，顺序增加。
-7. 重要记忆与设定建议使用 constant: true 固定注入，可不填写关键词。
-8. 次要记忆与设定建议使用 constant: false 非固定注入，并添加触发关键词。
+6. 新建book使用position: after_character, order则从301开始，顺序增加；不要重复创建Book。
+7. 重要记忆与设定建议使用 constant: true 固定注入，可不填写关键词；次要记忆与设定建议使用 constant: false 非固定注入，并添加触发关键词。
+8. 检查[Books]，不要重复添加。
 
 示例：
 <memory_edit>
+update_record: 
+- 创建角色book
+- 新增角色小明
+
 \`\`\`amber-memory
 actions:
+（新增与配置book）
   - action: create_book
     book: 角色
   - action: configure_book
@@ -57,6 +62,8 @@ actions:
       constant: false
       position: after_character
       order: 301
+
+（新增与编辑路径字段）
   - action: merge
     book: 角色
     path: [小明]
@@ -66,6 +73,8 @@ actions:
       外貌:
         发色: 黑
         瞳色: 黑
+
+（替换路径与所有子内容）
   - action: replace
     book: 角色
     path: [小明]
@@ -73,6 +82,8 @@ actions:
       年龄: 18岁
       性格: 男
       身高: 175cm
+
+（删除路径与所有子内容）
   - action: delete
     book: 角色
     path: [小明]
