@@ -1454,7 +1454,7 @@ function buildManagedHeader(config) {
     if (config.keysecondary?.length) {
         lines.push(`# keysecondary: ${config.keysecondary.join(', ')}`);
     }
-    // 目前不需要push constant, selective 和 selectiveLogic 字段
+    // 目前不需要push constant, position, selective 和 selectiveLogic 字段
     // if (config.constant) {
     //     lines.push('# constant: true');
     // }
@@ -1464,12 +1464,12 @@ function buildManagedHeader(config) {
     // if (config.keysecondary?.length || (config.selectiveLogic && config.selectiveLogic !== 'AND_ANY')) {
     //     lines.push(`# selectiveLogic: ${config.selectiveLogic}`);
     // }
-    if (config.position != null) {
-        lines.push(`# position: ${getPositionValueForHeader(config.position)}`);
-    }
-    if (config.position === 4 && Number.isFinite(Number(config.depth))) {
-        lines.push(`# depth: ${Number(config.depth)}`);
-    }
+    // if (config.position != null) {
+    //     lines.push(`# position: ${getPositionValueForHeader(config.position)}`);
+    // }
+    // if (config.position === 4 && Number.isFinite(Number(config.depth))) {
+    //     lines.push(`# depth: ${Number(config.depth)}`);
+    // }
     if (Number.isFinite(Number(config.order))) {
         lines.push(`# order: ${Number(config.order)}`);
     }
